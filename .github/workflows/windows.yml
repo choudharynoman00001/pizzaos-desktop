@@ -12,7 +12,7 @@ jobs:
       - name: Extract sanitized runtime
         shell: pwsh
         run: |
-          $z = Get-ChildItem -File '*pizzaos-runtime-v0.3.zip' | Select-Object -First 1
+          $z = Get-ChildItem -File '*pizzaos-runtime-v0.4.zip' | Select-Object -First 1
           if(!$z){throw 'Runtime archive missing'}
           Expand-Archive $z.FullName stage
           Copy-Item stage/packaging/windows-smoke.ps1 windows-smoke.ps1
@@ -44,9 +44,16 @@ jobs:
           if(!(Test-Path $compiler)){throw 'NSIS compiler not present on standard runner'}
           & $compiler stage/packaging/pizzaos.nsi
           if($LASTEXITCODE -ne 0){throw 'NSIS failed'}
+      - name: Prepare disposable UI test browser driver
+        shell: pwsh
+        run: |
+          npm install --prefix ui-tools --no-save playwright
+          if($LASTEXITCODE -ne 0){throw 'UI driver install failed'}
+          Copy-Item stage/packaging/windows-ui.mjs ui-tools/windows-ui.mjs
       - name: Actual installed Windows workflow smoke
         shell: pwsh
-        run: ./windows-smoke.ps1
+        run: |
+          ./windows-smoke.ps1 | Tee-Object -FilePath windows-smoke.txt
       - name: Publish tested development setup
         shell: pwsh
         env:
@@ -55,4 +62,4 @@ jobs:
           $tag='dev-win-'+${{ github.run_number }}
           $hash=(Get-FileHash PizzaOS-Setup-0.1.0-x64.exe -Algorithm SHA256).Hash.ToLower()
           "$hash  PizzaOS-Setup-0.1.0-x64.exe" | Set-Content SHA256SUMS.txt
-          gh release create $tag PizzaOS-Setup-0.1.0-x64.exe SHA256SUMS.txt --prerelease --title 'PizzaOS tested Windows development setup' --notes 'Automated Windows install/launcher/login/password-change/order-write/stop/restart/readback/upgrade/uninstall-preservation smoke passed. Not physical-device tested or production approved. Unsigned installer. Remaining PDF scope still in development.'
+          gh release create $tag PizzaOS-Setup-0.1.0-x64.exe SHA256SUMS.txt windows-smoke.txt windows-evidence/*.png --prerelease --title 'PizzaOS tested Windows development setup' --notes 'Automated Windows install/launcher/login/password-change/order-write/stop/restart/readback/upgrade/uninstall-preservation smoke passed. Not physical-device tested or production approved. Unsigned installer. Remaining PDF scope still in development.'

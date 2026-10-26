@@ -38,6 +38,8 @@ jobs:
           $nsi=$nsi.Replace('/downloads/pizzaos-delivery/PizzaOS-Setup-0.1.0-x64.exe',((Get-Location).Path+'/PizzaOS-Setup-0.1.0-x64.exe').Replace('\','/'))
           $nsi=$nsi.Replace('/tmp/pizzaos-win-stage/*',((Get-Location).Path+'/stage/*').Replace('\','/'))
           Set-Content stage/packaging/pizzaos.nsi $nsi
+          choco install nsis --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'NSIS installation failed'}
           $compiler='C:\Program Files (x86)\NSIS\makensis.exe'
           if(!(Test-Path $compiler)){throw 'NSIS compiler not present on standard runner'}
           & $compiler stage/packaging/pizzaos.nsi

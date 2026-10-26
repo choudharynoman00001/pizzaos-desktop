@@ -12,7 +12,7 @@ jobs:
       - name: Extract sanitized runtime
         shell: pwsh
         run: |
-          $z = Get-ChildItem -File '*pizzaos-runtime-v0.2.zip' | Select-Object -First 1
+          $z = Get-ChildItem -File '*pizzaos-runtime-v0.3.zip' | Select-Object -First 1
           if(!$z){throw 'Runtime archive missing'}
           Expand-Archive $z.FullName stage
           Copy-Item stage/packaging/windows-smoke.ps1 windows-smoke.ps1

@@ -35,8 +35,8 @@ jobs:
         shell: pwsh
         run: |
           $nsi=Get-Content stage/packaging/pizzaos.nsi -Raw
-          $nsi=$nsi.Replace('/downloads/pizzaos-delivery/PizzaOS-Setup-0.1.0-x64.exe',((Get-Location).Path+'/PizzaOS-Setup-0.1.0-x64.exe').Replace('\','/'))
-          $nsi=$nsi.Replace('/tmp/pizzaos-win-stage/*',((Get-Location).Path+'/stage/*').Replace('\','/'))
+          $nsi=$nsi.Replace('/downloads/pizzaos-delivery/PizzaOS-Setup-0.1.0-x64.exe',(Join-Path (Get-Location).Path 'PizzaOS-Setup-0.1.0-x64.exe'))
+          $nsi=$nsi.Replace('/tmp/pizzaos-win-stage/*',(Join-Path (Get-Location).Path 'stage\*'))
           Set-Content stage/packaging/pizzaos.nsi $nsi
           choco install nsis --yes --no-progress
           if($LASTEXITCODE -ne 0){throw 'NSIS installation failed'}

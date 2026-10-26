@@ -1,0 +1,56 @@
+name: Windows build and smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract sanitized runtime
+        shell: pwsh
+        run: |
+          $z = Get-ChildItem -File '*pizzaos-runtime-v0.2.zip' | Select-Object -First 1
+          if(!$z){throw 'Runtime archive missing'}
+          Expand-Archive $z.FullName stage
+          Copy-Item stage/packaging/windows-smoke.ps1 windows-smoke.ps1
+      - name: Bundle verified Node and dependencies
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip -OutFile node.zip
+          $hash=(Get-FileHash node.zip -Algorithm SHA256).Hash.ToLower()
+          if($hash -ne 'cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20'){throw 'Node hash mismatch'}
+          Expand-Archive node.zip node-dist
+          New-Item -ItemType Directory -Force stage/runtime | Out-Null
+          Copy-Item node-dist/node-v22.23.4-win-x64/node.exe stage/runtime/
+          Copy-Item node-dist/node-v22.23.4-win-x64/LICENSE stage/runtime/NODE-LICENSE.txt
+          Copy-Item stage/packaging/launcher.ps1,stage/packaging/stop.ps1,stage/packaging/Launch-PizzaOS.vbs stage/
+          Push-Location stage
+          npm ci --omit=dev --ignore-scripts
+          if($LASTEXITCODE -ne 0){throw 'npm ci failed'}
+          Pop-Location
+      - name: Compile setup
+        shell: pwsh
+        run: |
+          $nsi=Get-Content stage/packaging/pizzaos.nsi -Raw
+          $nsi=$nsi.Replace('/downloads/pizzaos-delivery/PizzaOS-Setup-0.1.0-x64.exe',((Get-Location).Path+'/PizzaOS-Setup-0.1.0-x64.exe').Replace('\','/'))
+          $nsi=$nsi.Replace('/tmp/pizzaos-win-stage/*',((Get-Location).Path+'/stage/*').Replace('\','/'))
+          Set-Content stage/packaging/pizzaos.nsi $nsi
+          $compiler='C:\Program Files (x86)\NSIS\makensis.exe'
+          if(!(Test-Path $compiler)){throw 'NSIS compiler not present on standard runner'}
+          & $compiler stage/packaging/pizzaos.nsi
+          if($LASTEXITCODE -ne 0){throw 'NSIS failed'}
+      - name: Actual installed Windows workflow smoke
+        shell: pwsh
+        run: ./windows-smoke.ps1
+      - name: Publish tested development setup
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag='dev-win-'+${{ github.run_number }}
+          $hash=(Get-FileHash PizzaOS-Setup-0.1.0-x64.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  PizzaOS-Setup-0.1.0-x64.exe" | Set-Content SHA256SUMS.txt
+          gh release create $tag PizzaOS-Setup-0.1.0-x64.exe SHA256SUMS.txt --prerelease --title 'PizzaOS tested Windows development setup' --notes 'Automated Windows install/launcher/login/password-change/order-write/stop/restart/readback/upgrade/uninstall-preservation smoke passed. Not physical-device tested or production approved. Unsigned installer. Remaining PDF scope still in development.'

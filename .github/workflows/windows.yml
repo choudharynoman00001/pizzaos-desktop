@@ -12,7 +12,7 @@ jobs:
       - name: Extract sanitized runtime
         shell: pwsh
         run: |
-          $z = Get-ChildItem -File '*pizzaos-runtime-v0.4.zip' | Select-Object -First 1
+          $z = Get-ChildItem -File '*pizzaos-runtime-v0.5.zip' | Select-Object -First 1
           if(!$z){throw 'Runtime archive missing'}
           Expand-Archive $z.FullName stage
           Copy-Item stage/packaging/windows-smoke.ps1 windows-smoke.ps1
@@ -53,7 +53,8 @@ jobs:
       - name: Actual installed Windows workflow smoke
         shell: pwsh
         run: |
-          ./windows-smoke.ps1 | Tee-Object -FilePath windows-smoke.txt
+          Start-Transcript -Path windows-smoke.txt
+          try { ./windows-smoke.ps1 } finally { Stop-Transcript }
       - name: Publish tested development setup
         shell: pwsh
         env:
